@@ -52,11 +52,52 @@ jobs:
           cache: true
           verbose: true
 
-      - name: Upload build artifacts
+      - name: Split platform packages
+        env:
+          ARCHIVE_DIRECTORY: ${{ steps.export.outputs.archive_directory }}
+          PACKAGE_DIRECTORY: ${{ runner.temp }}/survivors-starter-kit-packages
+        run: |
+          set -euo pipefail
+          mkdir -p "$PACKAGE_DIRECTORY"
+          echo "Archives produced by Godot Export:"
+          find "$ARCHIVE_DIRECTORY" -maxdepth 2 -type f -print
+
+          windows_archive="$(find "$ARCHIVE_DIRECTORY" -maxdepth 2 -type f -iname '*windows*' -print -quit)"
+          macos_archive="$(find "$ARCHIVE_DIRECTORY" -maxdepth 2 -type f -iname '*macos*' -print -quit)"
+          linux_archive="$(find "$ARCHIVE_DIRECTORY" -maxdepth 2 -type f -iname '*linux*' -print -quit)"
+
+          test -n "$windows_archive"
+          test -n "$macos_archive"
+          test -n "$linux_archive"
+
+          cp "$windows_archive" "$PACKAGE_DIRECTORY/SurvivorsStarterKit-Windows.zip"
+          cp "$macos_archive" "$PACKAGE_DIRECTORY/SurvivorsStarterKit-macOS.zip"
+          cp "$linux_archive" "$PACKAGE_DIRECTORY/SurvivorsStarterKit-Linux.zip"
+
+          echo "Independent platform packages:"
+          ls -lh "$PACKAGE_DIRECTORY"
+
+      - name: Upload Windows package
         uses: actions/upload-artifact@v4
         with:
-          name: SurvivorsStarterKit-${{ github.sha }}
-          path: ${{ steps.export.outputs.archive_directory }}/*
+          name: SurvivorsStarterKit-Windows-${{ github.sha }}
+          path: ${{ runner.temp }}/survivors-starter-kit-packages/SurvivorsStarterKit-Windows.zip
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload macOS package
+        uses: actions/upload-artifact@v4
+        with:
+          name: SurvivorsStarterKit-macOS-${{ github.sha }}
+          path: ${{ runner.temp }}/survivors-starter-kit-packages/SurvivorsStarterKit-macOS.zip
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload Linux package
+        uses: actions/upload-artifact@v4
+        with:
+          name: SurvivorsStarterKit-Linux-${{ github.sha }}
+          path: ${{ runner.temp }}/survivors-starter-kit-packages/SurvivorsStarterKit-Linux.zip
           if-no-files-found: error
           retention-days: 14
 
@@ -64,5 +105,5 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
-          ARCHIVE_DIRECTORY: ${{ steps.export.outputs.archive_directory }}
-        run: gh release create "$GITHUB_REF_NAME" "$ARCHIVE_DIRECTORY"/* --generate-notes
+          PACKAGE_DIRECTORY: ${{ runner.temp }}/survivors-starter-kit-packages
+        run: gh release create "$GITHUB_REF_NAME" "$PACKAGE_DIRECTORY"/* --generate-notes

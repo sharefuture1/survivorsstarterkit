@@ -80,6 +80,6 @@ The repository includes a GitHub Actions workflow at `.github/workflows/build.ym
 It exports portable desktop packages for Windows, macOS, and Linux using the presets in
 `export_presets.cfg`.
 
-- Every push to `main` or the optimization branch and every pull request to `main` produces downloadable Actions artifacts.
+- Every push to `main` or the optimization branch and every pull request to `main` produces three independent downloadable Actions artifacts, one per platform.
 - Pushing a tag such as `v1.0.0` also creates a GitHub Release and attaches the three desktop archives.
 - The workflow uses Godot 4.6.2 Mono and .NET 8 to match this project.
