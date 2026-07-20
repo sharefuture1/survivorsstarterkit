@@ -40,6 +40,10 @@ project/assembly_name="Survivors Starter Kit"
 
 enabled=PackedStringArray()
 
+[filesystem]
+
+import/fbx2gltf/enabled=false
+
 [input]
 
 left={
@@ -90,6 +94,7 @@ SpawnBoss={
 
 [rendering]
 
+textures/vram_compression/import_etc2_astc=true
 lights_and_shadows/directional_shadow/soft_shadow_filter_quality=5
 anti_aliasing/quality/msaa_3d=1
 anti_aliasing/quality/screen_space_aa=1
