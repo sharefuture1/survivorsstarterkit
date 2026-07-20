@@ -3,60 +3,71 @@ using System.Collections.Generic;
 
 public partial class DamageLabelManager : Control
 {
-    public const uint InitialQueue = 50;
+    public const int InitialPoolSize = 50;
 
-    private readonly Queue<Label> _queue = new();
+    private readonly Queue<Label> _pool = new();
 
-    public readonly List<Label> _displayedLabels = new();
-
+    private LabelSettings _labelSettings;
     private Camera3D _camera;
     private GameManager _gameManager;
 
-    // Called when the node enters the scene tree for the first time.
     public override void _Ready()
     {
         ProcessMode = ProcessModeEnum.Always;
+        MouseFilter = MouseFilterEnum.Ignore;
 
-        _camera = GetNode<Camera3D>("../Player/Camera3D");
+        _camera = GetViewport().GetCamera3D();
         _gameManager = GetNode<GameManager>("/root/GameManager");
         _gameManager.OnEnemyHit += OnEnemyHit;
 
-        for (uint i = 0; i < InitialQueue; ++i)
-        {
-            var label = new Label() { ProcessMode = ProcessModeEnum.Always };
-            _queue.Enqueue(label);
-        }
-    }
-
-    // Called every frame. 'delta' is the elapsed time since the previous frame.
-    public override void _Process(double delta)
-    {
-    }
-
-    public Label GetLabel()
-    {
-        var label = _queue.Count == 0 ? new Label() { ProcessMode = ProcessModeEnum.Always } : _queue.Dequeue();
-        label.LabelSettings = new LabelSettings()
+        // One shared immutable settings object; allocating a new one per label defeats the pool.
+        _labelSettings = new LabelSettings()
         {
             FontColor = new Color(1, 0, 0),
             FontSize = 30,
             OutlineSize = 4,
             OutlineColor = new Color(0, 0, 0),
         };
+
+        for (int i = 0; i < InitialPoolSize; ++i)
+        {
+            _pool.Enqueue(CreateLabel());
+        }
+    }
+
+    public override void _ExitTree()
+    {
+        base._ExitTree();
+
+        // The GameManager autoload outlives this scene; a stale handler would target a freed node.
+        _gameManager.OnEnemyHit -= OnEnemyHit;
+
+        // Pooled labels are not in the tree, so they must be freed manually.
+        while (_pool.Count > 0) _pool.Dequeue().Free();
+    }
+
+    private Label CreateLabel() => new()
+    {
+        ProcessMode = ProcessModeEnum.Always,
+        LabelSettings = _labelSettings,
+        MouseFilter = MouseFilterEnum.Ignore,
+    };
+
+    private Label GetLabel()
+    {
+        var label = _pool.Count == 0 ? CreateLabel() : _pool.Dequeue();
         label.Modulate = new Color(1, 1, 1, 1);
-        _displayedLabels.Add(label);
         AddChild(label);
         return label;
     }
 
-    public void ReturnToPool(Label label)
+    private void ReturnToPool(Label label)
     {
-        _queue.Enqueue(label);
-        _displayedLabels.Remove(label);
+        _pool.Enqueue(label);
         RemoveChild(label);
     }
 
-    public void OnEnemyHit(Enemy enemy, int damages)
+    private void OnEnemyHit(Enemy enemy, int damages)
     {
         var label = GetLabel();
         label.Text = damages.ToString();

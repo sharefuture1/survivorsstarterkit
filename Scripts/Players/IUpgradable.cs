@@ -1,4 +1,4 @@
 public interface IUpgradable
 {
-    public void Upgrade(PowerupType powerupType);
+    public void Upgrade(Powerup powerup);
 }

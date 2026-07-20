@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3 uid="uid://ccwt5vlfksxqv"]
+[gd_scene load_steps=5 format=3 uid="uid://ccwt5vlfksxqv"]
 
+[ext_resource type="Script" path="res://Scripts/UI/Hud.cs" id="1_hud01"]
 [ext_resource type="PackedScene" uid="uid://bpb5p32e5r0ub" path="res://Prefabs/UI/lifebar.tscn" id="2_b3dd8"]
-[ext_resource type="PackedScene" uid="uid://oqbxhb2symxp" path="res://Prefabs/UI/powerup_block.tscn" id="2_cdj2w"]
 [ext_resource type="Script" uid="uid://bttsdt8w0l4ni" path="res://Scripts/UI/UpgradeView.cs" id="2_esggw"]
+[ext_resource type="Script" uid="uid://c1hx08aqkelif" path="res://Scripts/UI/DamageLabelManager.cs" id="3_dmg01"]
 
 [node name="HUD" type="Control"]
 layout_mode = 3
@@ -11,15 +12,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-
-[node name="GameTime" type="Label" parent="."]
-layout_mode = 0
-offset_left = 10.0
-offset_top = 40.0
-offset_right = 192.0
-offset_bottom = 143.0
-theme_override_font_sizes/font_size = 24
-text = "00:00"
+script = ExtResource("1_hud01")
 
 [node name="PlayerXPBar" type="ProgressBar" parent="."]
 process_mode = 3
@@ -28,6 +21,44 @@ anchors_preset = 10
 anchor_right = 1.0
 offset_bottom = 27.0
 grow_horizontal = 2
+show_percentage = false
+
+[node name="LevelLabel" type="Label" parent="."]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 2.0
+offset_right = 120.0
+offset_bottom = 25.0
+theme_override_font_sizes/font_size = 16
+text = "Lv 1"
+
+[node name="GameTime" type="Label" parent="."]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -80.0
+offset_top = 32.0
+offset_right = 80.0
+offset_bottom = 66.0
+grow_horizontal = 2
+theme_override_font_sizes/font_size = 24
+text = "00:00"
+horizontal_alignment = 1
+
+[node name="KillsLabel" type="Label" parent="."]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -220.0
+offset_top = 32.0
+offset_right = -10.0
+offset_bottom = 60.0
+grow_horizontal = 0
+theme_override_font_sizes/font_size = 20
+text = "Kills: 0"
+horizontal_alignment = 2
 
 [node name="PlayerLifeBar" parent="." instance=ExtResource("2_b3dd8")]
 layout_mode = 1
@@ -43,6 +74,16 @@ offset_bottom = 80.0
 grow_horizontal = 2
 grow_vertical = 2
 
+[node name="DamageLabels" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("3_dmg01")
+
 [node name="UpgradeContainer" type="HBoxContainer" parent="."]
 z_index = 1
 layout_mode = 1
@@ -53,13 +94,116 @@ offset_top = 27.0
 grow_horizontal = 2
 grow_vertical = 2
 alignment = 1
+theme_override_constants/separation = 16
 script = ExtResource("2_esggw")
 
-[node name="PowerupBlock" parent="UpgradeContainer" instance=ExtResource("2_cdj2w")]
-layout_mode = 2
+[node name="PausePanel" type="Control" parent="."]
+visible = false
+z_index = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 
-[node name="PowerupBlock2" parent="UpgradeContainer" instance=ExtResource("2_cdj2w")]
-layout_mode = 2
+[node name="Dim" type="ColorRect" parent="PausePanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.6)
 
-[node name="PowerupBlock3" parent="UpgradeContainer" instance=ExtResource("2_cdj2w")]
+[node name="CenterContainer" type="CenterContainer" parent="PausePanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="PausePanel/CenterContainer"]
 layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="Title" type="Label" parent="PausePanel/CenterContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 48
+text = "Paused"
+horizontal_alignment = 1
+
+[node name="ResumeButton" type="Button" parent="PausePanel/CenterContainer/VBoxContainer"]
+custom_minimum_size = Vector2(240, 48)
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Resume"
+
+[node name="RestartButton" type="Button" parent="PausePanel/CenterContainer/VBoxContainer"]
+custom_minimum_size = Vector2(240, 48)
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Restart"
+
+[node name="QuitButton" type="Button" parent="PausePanel/CenterContainer/VBoxContainer"]
+custom_minimum_size = Vector2(240, 48)
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Quit"
+
+[node name="GameOverPanel" type="Control" parent="."]
+visible = false
+z_index = 2
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Dim" type="ColorRect" parent="GameOverPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.75)
+
+[node name="CenterContainer" type="CenterContainer" parent="GameOverPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="GameOverPanel/CenterContainer"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="Title" type="Label" parent="GameOverPanel/CenterContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.2, 0.2, 1)
+theme_override_font_sizes/font_size = 64
+text = "YOU DIED"
+horizontal_alignment = 1
+
+[node name="Stats" type="Label" parent="GameOverPanel/CenterContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Survived 00:00"
+horizontal_alignment = 1
+
+[node name="RestartButton" type="Button" parent="GameOverPanel/CenterContainer/VBoxContainer"]
+custom_minimum_size = Vector2(240, 48)
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Play Again"
+
+[node name="QuitButton" type="Button" parent="GameOverPanel/CenterContainer/VBoxContainer"]
+custom_minimum_size = Vector2(240, 48)
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Quit"

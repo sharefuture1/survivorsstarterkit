@@ -5,7 +5,8 @@
 [resource]
 script = ExtResource("1_7q2bj")
 Type = 5
-Name = "Vol de vie - Dégâts+"
-Description = "Augmente les dégâts: +5% (+{0}%)"
+Name = "Lifesteal - Drain+"
+Description = "Each drain tick steals +1 more HP (now +{0})"
+Value = 1.0
 IsCumulable = true
 MaxCumul = 6

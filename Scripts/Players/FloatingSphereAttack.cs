@@ -1,10 +1,10 @@
 using Godot;
 using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 public partial class FloatingSphereAttack : Node3D, IUpgradable
 {
+    private const float DowntimeSeconds = 2f;
+
     [Export]
     public uint InitialSpheres = 1;
 
@@ -26,13 +26,12 @@ public partial class FloatingSphereAttack : Node3D, IUpgradable
 
     [Export]
     private PackedScene _spherePrefab;
-    private List<Area3D> _spheres = new();
+    private readonly List<Area3D> _spheres = new();
     private Timer _timer;
 
-    // Called when the node enters the scene tree for the first time.
     public override void _Ready()
     {
-        foreach (int i in Enumerable.Range(0, (int)InitialSpheres))
+        for (int i = 0; i < InitialSpheres; i++)
             AddSphere();
 
         _timer = GetNode<Timer>("Timer");
@@ -47,17 +46,9 @@ public partial class FloatingSphereAttack : Node3D, IUpgradable
         enemy.TakeDamages(TotalDamages);
     }
 
-    // Called every frame. 'delta' is the elapsed time since the previous frame.
     public override void _PhysicsProcess(double delta)
     {
         RotateY((float)delta * RotationSpeed);
-
-        //if (_rb.GetContactCount() == 0) return;
-        //foreach (var contact in _rb.GetCollidingBodies())
-        //{
-        //    if (contact is not Enemy enemy) continue;
-        //    enemy.TakeDamages(Damages);
-        //}
     }
 
     private void AddSphere()
@@ -72,12 +63,11 @@ public partial class FloatingSphereAttack : Node3D, IUpgradable
 
     private void RepositionSpheres()
     {
-        float axis;
         Vector3 basePosition = new(SphereDistance, 0.3f, 0);
         for (int i = 0; i < _spheres.Count; i++)
         {
-            axis = Mathf.Lerp(0, 360, (float)i / _spheres.Count);
-            Basis basis = new Basis(new Vector3(0, 1, 0), Mathf.DegToRad(axis));
+            float angle = Mathf.Tau * i / _spheres.Count;
+            Basis basis = new(Vector3.Up, angle);
             _spheres[i].Position = basis * basePosition;
         }
     }
@@ -85,7 +75,8 @@ public partial class FloatingSphereAttack : Node3D, IUpgradable
     private async void OnAttackEnd()
     {
         HideSpheres();
-        await Task.Delay(2000);
+        // Pauses with the tree (processAlways: false) so the downtime doesn't tick during votes.
+        await ToSignal(GetTree().CreateTimer(DowntimeSeconds, processAlways: false), SceneTreeTimer.SignalName.Timeout);
         _timer.Start();
         ShowSpheres();
     }
@@ -94,8 +85,9 @@ public partial class FloatingSphereAttack : Node3D, IUpgradable
     {
         foreach (var area in _spheres)
         {
-            area.GetNode<GpuParticles3D>("Particles").Restart();
-            area.GetNode<GpuParticles3D>("Particles").Emitting = true;
+            var particles = area.GetNode<GpuParticles3D>("Particles");
+            particles.Restart();
+            particles.Emitting = true;
             area.SetPhysicsProcess(true);
             area.Show();
         }
@@ -111,15 +103,15 @@ public partial class FloatingSphereAttack : Node3D, IUpgradable
         }
     }
 
-    public void Upgrade(PowerupType powerupType)
+    public void Upgrade(Powerup powerup)
     {
-        switch (powerupType)
+        switch (powerup.Type)
         {
             case PowerupType.FloatingSphereCount:
                 AddSphere();
                 break;
             case PowerupType.FloatingSphereDamages:
-                _damagesBonus += 1;
+                _damagesBonus += (uint)powerup.Value;
                 break;
             default: break;
         }

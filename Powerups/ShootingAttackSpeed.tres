@@ -5,7 +5,8 @@
 [resource]
 script = ExtResource("1_5itmx")
 Type = 1
-Name = "Tir - Cadence+"
-Description = "Augmente la cadence de tir: +5% (+{0}%)"
+Name = "Shot - Fire Rate+"
+Description = "Fires +0.25 more bullets per second (now +{0}/s)"
+Value = 0.25
 IsCumulable = true
 MaxCumul = 6

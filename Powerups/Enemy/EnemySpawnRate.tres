@@ -4,8 +4,8 @@
 
 [resource]
 script = ExtResource("1_7bhat")
-Value = 1.0
-Name = "Monstres kamikazes"
-Description = "Les monstres ont une chance d'exploser quand ils meurent ({0}% de chance d'exploser)"
-MaxStack = 5
+Value = 0.25
+Name = "Monsters: Spawn Rate+"
+Description = "Monsters spawn more often (one every {0}s)"
+MaxStack = 8
 Type = 103

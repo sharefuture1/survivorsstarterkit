@@ -12,10 +12,10 @@ public enum EnemyClass
 
 public partial class Enemy : AnimatableBody3D
 {
-    public const uint MaxLifepoints = 10;
+    private const float AttackRange = 2f;
 
     [Export]
-    public int Lifepoints { get; set; } = (int)MaxLifepoints;
+    public int Lifepoints { get; set; } = 10;
 
     [Export]
     public uint Damages { get; set; } = 5;
@@ -26,121 +26,61 @@ public partial class Enemy : AnimatableBody3D
     [Export]
     public int Experience { get; private set; } = 1;
 
+    public bool IsDead { get; private set; }
+
     private GameManager _gameManager;
     private GpuParticles3D _damageParticles;
-
-    private ProgressBar _lifebar;
-    private Camera3D _camera;
-    private Label _username;
     private Timer _attackCooldown;
 
     [Signal]
     public delegate void OnEnemyHitEventHandler(Enemy enemy, int damages);
 
-    public bool IsPlayerInAttackRange => (_gameManager.Player.GlobalPosition - GlobalPosition).Length() <= 2f;
+    [Signal]
+    public delegate void DiedEventHandler(Enemy enemy);
 
-    // Called when the node enters the scene tree for the first time.
     public override void _Ready()
     {
         _gameManager = GetNode<GameManager>("/root/GameManager");
 
         _attackCooldown = GetNode<Timer>("AttackCooldown");
         _damageParticles = GetNode<GpuParticles3D>("DamageParticles");
-
-        _camera = GetNode<Camera3D>("../Player/Camera3D");
-
-        // var hud = GetNode<Control>("../HUD");
-        // _lifebar = GD.Load<PackedScene>("res://Prefabs/UI/enemy_life_bar.tscn").Instantiate<ProgressBar>();
-        // _lifebar.MaxValue = Lifepoints;
-        // hud.AddChild(_lifebar);
-    }
-
-    // Called every frame. 'delta' is the elapsed time since the previous frame.
-    public override void _Process(double delta)
-    {
-        base._Process(delta);
-
-        if (_attackCooldown.TimeLeft <= 0) Attack();
-
-        if(GlobalPosition.DistanceSquaredTo(_gameManager.Player.GlobalPosition) > Mathf.Epsilon)
-            LookAt(_gameManager.Player.GlobalPosition, Vector3.Up, true);
-
-        if (_lifebar != null)
-        {
-            Vector2 lifeBarPos = _camera.UnprojectPosition(GlobalPosition);
-            lifeBarPos -= _lifebar.Size / 2;
-            lifeBarPos.Y -= 50;
-            _lifebar.Position = lifeBarPos;
-            _lifebar.Value = Lifepoints;
-        }
-
-        if (_username == null) return;
-
-        Vector2 usernamePos = _camera.UnprojectPosition(GlobalPosition);
-        usernamePos -= _username.Size / 2;
-        usernamePos.Y -= 40;
-        _username.Position = usernamePos;
     }
 
     public override void _PhysicsProcess(double delta)
     {
         base._PhysicsProcess(delta);
-    
-        var playerPos = _gameManager.Player.GlobalPosition;
-        var direction = (playerPos - GlobalPosition).LimitLength();
-        
-        GlobalPosition += (float)delta * MovementSpeed * direction;
-        
-        // ConstantLinearVelocity = direction * MovementSpeed;
-    }
 
-    // public override void _IntegrateForces(PhysicsDirectBodyState3D state)
-    // {
-    //     base._IntegrateForces(state);
-    //
-    //     var playerPos = _gameManager.Player.GlobalPosition;
-    //     var direction = (playerPos - GlobalPosition).LimitLength();
-    //     
-    //     state.LinearVelocity = direction * MovementSpeed;
-    // }
+        var player = _gameManager.Player;
+        if (player == null) return;
 
-    public override void _ExitTree()
-    {
-        base._ExitTree();
+        Vector3 toPlayer = player.GlobalPosition - GlobalPosition;
+        toPlayer.Y = 0;
 
-        _lifebar?.QueueFree();
-        _username?.QueueFree();
-    }
+        GlobalPosition += (float)delta * MovementSpeed * toPlayer.LimitLength();
 
-    private void Attack()
-    {
-        if (!IsPlayerInAttackRange) return;
-        _attackCooldown.Start();
-        _gameManager.Player.TakeDamages(Damages);
-    }
+        float distanceSq = toPlayer.LengthSquared();
+        if (distanceSq > 0.0001f)
+            LookAt(GlobalPosition + toPlayer, Vector3.Up, true);
 
-    internal void SetName(string username)
-    {
-        _username = new() { Text = username };
-        GetNode<Control>("../HUD").AddChild(_username);
+        if (_attackCooldown.TimeLeft <= 0 && distanceSq <= AttackRange * AttackRange)
+        {
+            _attackCooldown.Start();
+            player.TakeDamages(Damages);
+        }
     }
 
     internal void TakeDamages(uint damages = 1)
     {
-        EmitParticles();
+        if (IsDead) return;
 
-        EmitSignal(SignalName.OnEnemyHit, this, damages);
+        _damageParticles.Restart();
+        EmitSignal(SignalName.OnEnemyHit, this, (int)damages);
+
         Lifepoints -= (int)damages;
         if (Lifepoints > 0) return;
-        QueueFree();
-    }
 
-    internal async void EmitParticles()
-    {
-        var particles = _damageParticles.Duplicate() as GpuParticles3D;
-        AddChild(particles);
-        particles.Emitting = true;
-        await ToSignal(GetTree().CreateTimer(particles.Lifetime), SceneTreeTimer.SignalName.Timeout);
-        particles.QueueFree();
+        IsDead = true;
+        EmitSignal(SignalName.Died, this);
+        QueueFree();
     }
 }

@@ -3,6 +3,9 @@ using System.Collections.Generic;
 
 public partial class SpiritWater : Node3D, IUpgradable
 {
+    private const float MinCooldown = 1.5f;
+    private const float MinSpawnRange = 1.5f;
+
     [Export]
     public uint Damages = 1;
 
@@ -22,7 +25,7 @@ public partial class SpiritWater : Node3D, IUpgradable
 
     private float _cooldownBonus = 0;
 
-    public float TotalCooldown => Cooldown - _cooldownBonus;
+    public float TotalCooldown => Mathf.Max(MinCooldown, Cooldown - _cooldownBonus);
 
     [Export]
     public float ProjectileRange = 2;
@@ -32,10 +35,9 @@ public partial class SpiritWater : Node3D, IUpgradable
     private Timer _projectileCooldown;
     private Timer _damageCooldown;
 
-    private List<Enemy> _enemies = new();
+    private readonly List<Enemy> _enemies = new();
     private GameManager _gameManager;
 
-    // Called when the node enters the scene tree for the first time.
     public override void _Ready()
     {
         _gameManager = GetNode<GameManager>("/root/GameManager");
@@ -56,7 +58,7 @@ public partial class SpiritWater : Node3D, IUpgradable
         projectile.BodyEntered += OnBodyEntered;
         projectile.BodyExited += OnBodyExited;
         GetTree().CurrentScene.AddChild(projectile);
-        projectile.GlobalPosition = _gameManager.GetRandomPosAroundPlayer(ProjectileRange) + new Vector3(0, 0.1f, 0);
+        projectile.GlobalPosition = _gameManager.GetRandomPosInDisk(ProjectileRange, MinSpawnRange) + new Vector3(0, 0.1f, 0);
 
         var tweener = GetTree().CreateTween();
         tweener.TweenProperty(projectile.GetNode("Visual"), "scale", new Vector3(0.01f, 0.01f, 0.01f), 1).SetDelay(TotalDuration);
@@ -79,17 +81,32 @@ public partial class SpiritWater : Node3D, IUpgradable
     private void OnDamageReady()
     {
         _damageCooldown.Start();
-        foreach (var enemy in _enemies)
+        for (int i = _enemies.Count - 1; i >= 0; i--)
+        {
+            var enemy = _enemies[i];
+            if (!IsInstanceValid(enemy) || enemy.IsDead)
+            {
+                _enemies.RemoveAt(i);
+                continue;
+            }
             enemy.TakeDamages(TotalDamages);
+        }
     }
 
-    public void Upgrade(PowerupType powerupType)
+    public void Upgrade(Powerup powerup)
     {
-        switch (powerupType)
+        switch (powerup.Type)
         {
-            case PowerupType.SpiritWaterDamages: _damagesBonus += 1; break;
-            case PowerupType.SpiritWaterDuration: _durationBonus += 0.2f; break;
-            case PowerupType.SpiritWaterCooldown: _cooldownBonus += 0.25f; break;
+            case PowerupType.SpiritWaterDamages:
+                _damagesBonus += (uint)powerup.Value;
+                break;
+            case PowerupType.SpiritWaterDuration:
+                _durationBonus += powerup.Value;
+                break;
+            case PowerupType.SpiritWaterCooldown:
+                _cooldownBonus += powerup.Value;
+                _projectileCooldown.WaitTime = TotalCooldown;
+                break;
             default: break;
         }
     }

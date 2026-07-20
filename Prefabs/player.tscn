@@ -108,9 +108,6 @@ parameters/walking/blend_amount = 0.0
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 shape = SubResource("CapsuleShape3D_adgmg")
 
-[node name="AttackCooldown" type="Timer" parent="."]
-autostart = true
-
 [node name="Shooting" parent="." instance=ExtResource("3_h4lb3")]
 BulletSpeed = 5.0
 
@@ -120,7 +117,5 @@ BulletSpeed = 5.0
 
 [node name="FloatingSphere" parent="." instance=ExtResource("6_eygic")]
 SphereDistance = 4.0
-
-[connection signal="timeout" from="AttackCooldown" to="." method="OnAttackTimeOut"]
 
 [editable path="Visual"]

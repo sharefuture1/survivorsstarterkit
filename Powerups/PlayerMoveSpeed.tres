@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="Powerup" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Players/Powerup.cs" id="1_pmsp1"]
+
+[resource]
+script = ExtResource("1_pmsp1")
+Type = 13
+Name = "Swiftness"
+Description = "Move speed +0.4 (now +{0})"
+Value = 0.4
+IsCumulable = true
+MaxCumul = 5

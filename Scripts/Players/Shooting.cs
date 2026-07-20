@@ -1,9 +1,9 @@
-
-
 using Godot;
 
 public partial class Shooting : Node3D, IUpgradable
 {
+    private const float BulletLifetime = 3f;
+
     [Export]
     public uint Damages = 5;
 
@@ -13,6 +13,8 @@ public partial class Shooting : Node3D, IUpgradable
     public float AttackSpeed = 1;
 
     private float _attackSpeedBonus = 0;
+
+    public uint TotalDamages => Damages + _damagesBonus;
 
     public float TotalAttackSpeed => AttackSpeed + _attackSpeedBonus;
 
@@ -29,7 +31,6 @@ public partial class Shooting : Node3D, IUpgradable
 
     private Timer _timer;
 
-    // Called when the node enters the scene tree for the first time.
     public override void _Ready()
     {
         _gameManager = GetNode<GameManager>("/root/GameManager");
@@ -49,33 +50,38 @@ public partial class Shooting : Node3D, IUpgradable
         if (nearestEnemy == null) return;
 
         var bullet = _bulletPrefab.Instantiate<RigidBody3D>();
-        //bullet.ConstantForce = TotalBulletSpeed * (nearestEnemy.GlobalPosition - GlobalPosition).Normalized();
         bullet.LinearVelocity = TotalBulletSpeed * (nearestEnemy.GlobalPosition - GlobalPosition).Normalized();
         bullet.BodyEntered += (body) => OnBodyEntered(bullet, body);
         GetTree().CurrentScene.AddChild(bullet);
         bullet.GlobalPosition = GlobalPosition + new Vector3(0, 0.5f, 0);
+
+        // Bullets that miss despawn instead of flying forever.
+        GetTree().CreateTimer(BulletLifetime).Timeout += () =>
+        {
+            if (IsInstanceValid(bullet)) bullet.QueueFree();
+        };
     }
 
     private void OnBodyEntered(RigidBody3D bullet, Node body)
     {
         bullet.QueueFree();
         if (body is not Enemy enemy) return;
-        enemy.TakeDamages(Damages + _damagesBonus);
+        enemy.TakeDamages(TotalDamages);
     }
 
-    public void Upgrade(PowerupType powerupType)
+    public void Upgrade(Powerup powerup)
     {
-        switch (powerupType)
+        switch (powerup.Type)
         {
             case PowerupType.ShootingDamages:
-                _damagesBonus += 1;
+                _damagesBonus += (uint)powerup.Value;
                 break;
             case PowerupType.ShootingAttackSpeed:
-                _attackSpeedBonus += 0.1f;
+                _attackSpeedBonus += powerup.Value;
                 _timer.WaitTime = 1f / TotalAttackSpeed;
                 break;
             case PowerupType.ShootingBulletSpeed:
-                _bulletSpeedBonus += 0.1f;
+                _bulletSpeedBonus += powerup.Value;
                 break;
             default: break;
         }

@@ -1,11 +1,12 @@
 [gd_resource type="Resource" script_class="Powerup" load_steps=2 format=3 uid="uid://dry6d770bhkbg"]
 
-[ext_resource type="Script" path="res://Scripts/Players/Powerup.cs" id="1_6dvb2"]
+[ext_resource type="Script" path="res://Scripts/Players/Powerup.cs" id="1_swdur"]
 
 [resource]
-script = ExtResource("1_6dvb2")
+script = ExtResource("1_swdur")
 Type = 8
-Name = "Poison - Durée+"
-Description = "Augmente la durée du poison: +5%"
+Name = "Poison - Duration+"
+Description = "Poison pools last +0.5s longer (now +{0}s)"
+Value = 0.5
 IsCumulable = true
 MaxCumul = 6

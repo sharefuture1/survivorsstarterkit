@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="Powerup" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Players/Powerup.cs" id="1_pmhp1"]
+
+[resource]
+script = ExtResource("1_pmhp1")
+Type = 10
+Name = "Vitality"
+Description = "Max HP +25, and heals 25 HP right away (now +{0} max HP)"
+Value = 25.0
+IsCumulable = true
+MaxCumul = 5

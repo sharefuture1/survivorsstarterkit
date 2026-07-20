@@ -5,7 +5,8 @@
 [resource]
 script = ExtResource("1_jlccq")
 Type = 6
-Name = "Vol de vie - Délai-"
-Description = "Réduit le délai entre deux ponctions: -5% ({0}sec.)"
+Name = "Lifesteal - Rate+"
+Description = "Drains +1 more time per second (now +{0}/s)"
+Value = 1.0
 IsCumulable = true
 MaxCumul = 6

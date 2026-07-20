@@ -5,7 +5,8 @@
 [resource]
 script = ExtResource("1_ivrxu")
 Type = 9
-Name = "Poison - Délai-"
-Description = "Réduit le délai entre deux poisons: -5%"
+Name = "Poison - Cooldown-"
+Description = "New poison pools appear 0.5s sooner (now -{0}s)"
+Value = 0.5
 IsCumulable = true
 MaxCumul = 6

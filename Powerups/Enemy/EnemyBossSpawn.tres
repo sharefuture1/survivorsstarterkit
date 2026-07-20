@@ -4,7 +4,7 @@
 
 [resource]
 script = ExtResource("1_7lk1s")
-Name = "Spawn Boss"
-Description = "Fait apparaître un boss"
+Name = "Boss Incoming"
+Description = "A boss spawns immediately"
 MaxStack = 9999
 Type = 50

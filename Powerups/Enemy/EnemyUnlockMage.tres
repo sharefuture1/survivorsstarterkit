@@ -4,7 +4,7 @@
 
 [resource]
 script = ExtResource("1_qe3gt")
-Name = "Monstre: Mage"
-Description = "Débloque la classe d'ennemi \"Mage\""
+Name = "Monster: Mage"
+Description = "Unlocks the \"Mage\" enemy class"
 MaxStack = 1
 Type = 1

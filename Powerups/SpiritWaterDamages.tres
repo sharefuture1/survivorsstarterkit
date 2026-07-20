@@ -5,7 +5,8 @@
 [resource]
 script = ExtResource("1_mfl2n")
 Type = 7
-Name = "Poison - Dégâts+"
-Description = "Augmente les dégâts du poison: +5% (+{0}%)"
+Name = "Poison - Damage+"
+Description = "Poison pools deal +1 damage per tick (now +{0})"
+Value = 1.0
 IsCumulable = true
 MaxCumul = 6

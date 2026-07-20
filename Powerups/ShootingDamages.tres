@@ -5,7 +5,8 @@
 [resource]
 script = ExtResource("1_s26v3")
 Type = 0
-Name = "Tir - Dégâts+"
-Description = "Augmente les dégâts des balles: +5% (+{0}%)"
+Name = "Shot - Damage+"
+Description = "Bullets deal +2 damage (now +{0})"
+Value = 2.0
 IsCumulable = true
 MaxCumul = 6

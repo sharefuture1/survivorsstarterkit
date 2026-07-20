@@ -1,36 +1,40 @@
 using Godot;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
-public record Choice(Powerup Powerup, EnemyPowerup EnemyPowerup, double EnemyValue);
+public record Choice(Powerup Powerup, double PlayerValue, EnemyPowerup EnemyPowerup, double EnemyValue);
 
 public partial class GameManager : Node
 {
-    private const float VoteTime = 30;
+    private const int MaxEnemies = 200;
+    private const float BossSpawnInterval = 120f;
+    private const float ChoiceDisplayTime = 1.5f;
+    private const float SpawnAccelerationTime = 75f;
+    private const float MinSpawnDelay = 0.15f;
 
     public Player Player;
+    public Hud Hud;
+
+    internal EnemyManager EnemyManager { get; private set; }
+
+    public double GameTime { get; private set; }
+    public int Kills { get; private set; }
+    public int PlayerLevel { get; private set; } = 1;
+    public float PlayerXp { get; private set; }
+    public int MaxPlayerXp { get; private set; } = 5;
+
+    public bool IsVotePhase { get; private set; }
+    public bool IsGameOver { get; private set; }
+    public bool IsPauseMenuOpen { get; private set; }
 
     private double _enemySpawnTimeLeft = 1;
+    private double _nextBossTime = BossSpawnInterval;
 
-    private EnemyManager _enemyManager;
-
-    private ProgressBar _playerXpBar;
-    private float _playerXp = 0;
-    private int _playerLevel = 1;
-    private int _maxPlayerXP = 5;
-
-    private bool _isVotePhase = false;
-    private UpgradeView _upgradeView;
     private List<Choice> _currentVotes;
-    private List<Powerup> _powerups = new();
-    private List<EnemyPowerup> _enemyPowerups = new();
-    private Dictionary<PowerupType, int> _powerupsCount = new();
-    private Dictionary<EnemyPowerupType, int> _enemyPowerupsCount = new();
-
-    private Label _gameTimeLabel;
-    public double GameTime { get; private set; } = 0;
+    private readonly List<Powerup> _powerups = new();
+    private readonly List<EnemyPowerup> _enemyPowerups = new();
+    private readonly Dictionary<PowerupType, int> _powerupsCount = new();
+    private readonly Dictionary<EnemyPowerupType, int> _enemyPowerupsCount = new();
 
     public event Action<Enemy, int> OnEnemyHit;
 
@@ -38,55 +42,59 @@ public partial class GameManager : Node
     {
         base._Ready();
 
-        _enemyManager = new(this);
-        _enemySpawnTimeLeft = _enemyManager.SpawnDelay;
-
         ProcessMode = ProcessModeEnum.Always;
-
-        _maxPlayerXP = GetMaxXPPerLevel(1);
-
-        _gameTimeLabel = GetNode<Label>("/root/MainScene/HUD/GameTime");
-        _playerXpBar = GetNode<ProgressBar>("/root/MainScene/HUD/PlayerXPBar");
-        _playerXpBar.MaxValue = _maxPlayerXP;
-
-        _upgradeView = GetNode<UpgradeView>("/root/MainScene/HUD/UpgradeContainer");
-        _upgradeView.OnChoose += OnChoose;
 
         LoadPowerups();
         LoadEnemyPowerups();
+        ResetRun();
     }
 
     public override void _Process(double delta)
     {
         base._Process(delta);
 
-        if (_isVotePhase) return;
+        if (IsVotePhase || IsGameOver || IsPauseMenuOpen || Player == null) return;
 
         // Debug thing
         if (Input.IsActionJustPressed("SpawnBoss"))
         {
-            _enemyManager.SpawnBoss();
+            EnemyManager.SpawnBoss();
         }
 
         GameTime += delta;
-        _gameTimeLabel.Text = $"{Mathf.FloorToInt(GameTime / 60):00}:{Mathf.FloorToInt(GameTime % 60):00}";
 
-        if (Player == null) return;
+        if (GameTime >= _nextBossTime)
+        {
+            _nextBossTime += BossSpawnInterval;
+            EnemyManager.SpawnBoss();
+        }
 
         _enemySpawnTimeLeft -= delta;
         if (_enemySpawnTimeLeft > 0) return;
-        _enemySpawnTimeLeft = _enemyManager.SpawnDelay;
+        _enemySpawnTimeLeft = CurrentSpawnDelay;
 
-        //int enemiesToSpawn = 15; // <-- This is a stress test value
-        int enemiesToSpawn = 1;
-        if (_enemyManager.Enemies.Count <= 200)
+        if (EnemyManager.Enemies.Count < MaxEnemies)
         {
-            for (int i = 0; i < enemiesToSpawn; ++i)
-            {
-                _enemyManager.SpawnEnemy();
-            }
+            EnemyManager.SpawnEnemy();
         }
     }
+
+    public override void _PhysicsProcess(double delta)
+    {
+        base._PhysicsProcess(delta);
+
+        if (IsVotePhase || IsGameOver || IsPauseMenuOpen || Player == null) return;
+
+        EnemyManager.ApplySeparation();
+    }
+
+    // Spawns get faster as the run goes on, on top of the spawn-rate votes.
+    private double CurrentSpawnDelay =>
+        Mathf.Max(MinSpawnDelay, EnemyManager.SpawnDelay / (1f + (float)GameTime / SpawnAccelerationTime));
+
+    // Enemy base lifepoints scale smoothly with player level and elapsed time.
+    internal float EnemyHealthMultiplier =>
+        1f + 0.12f * (PlayerLevel - 1) + 0.08f * (float)(GameTime / 60.0);
 
     private void LoadPowerups()
     {
@@ -108,83 +116,186 @@ public partial class GameManager : Node
         }
     }
 
+    public void RegisterHud(Hud hud)
+    {
+        Hud = hud;
+        hud.UpgradeView.OnChoose += OnChoose;
+    }
+
     internal void EnemyHit(Enemy enemy, int damages)
     {
         OnEnemyHit?.Invoke(enemy, damages);
     }
 
-    internal void EnemyKilled(float enemyXP)
+    internal void EnemyKilled(int enemyXP)
     {
-        _playerXp += enemyXP;
-        _playerXpBar.Value = _playerXp;
-        if (_playerXp >= _maxPlayerXP)
-        {
-            _playerLevel++;
-            _maxPlayerXP = GetMaxXPPerLevel(_playerLevel);
-            _playerXpBar.MaxValue = _maxPlayerXP;
+        if (IsGameOver) return;
 
+        Kills++;
+        PlayerXp += enemyXP;
+        TryStartLevelUp();
+    }
+
+    private void TryStartLevelUp()
+    {
+        while (!IsVotePhase && !IsGameOver && PlayerXp >= MaxPlayerXp)
+        {
+            PlayerXp -= MaxPlayerXp;
+            PlayerLevel++;
+            MaxPlayerXp = GetMaxXPPerLevel(PlayerLevel);
+
+            var votes = BuildChoices();
+            if (votes.Count == 0) continue; // every powerup is maxed out, keep leveling silently
+
+            IsVotePhase = true;
             GetTree().Paused = true;
-            DisplayPowerups();
+            _currentVotes = votes;
+            Hud.UpgradeView.SetChoices(votes);
+            return;
         }
     }
 
-    private void DisplayPowerups()
+    private List<Choice> BuildChoices()
     {
-        _isVotePhase = true;
+        var playerChoices = new List<Powerup>();
+        foreach (var powerup in _powerups)
+            if (_powerupsCount[powerup.Type] < powerup.MaxCumul) playerChoices.Add(powerup);
 
-        List<Powerup> powerupChoices = _powerups.Where(p => _powerupsCount[p.Type] < p.MaxCumul)
-            .OrderBy(_ => GD.Randf())
-            .Take(3)
-            .ToList();
-        List<EnemyPowerup> enemyPowerupsChoices = _enemyPowerups.Where(p => _enemyPowerupsCount[p.Type] < p.MaxStack)
-            .OrderBy(_ => GD.Randf())
-            .Take(3)
-            .ToList();
+        var enemyChoices = new List<EnemyPowerup>();
+        foreach (var powerup in _enemyPowerups)
+            if (_enemyPowerupsCount[powerup.Type] < powerup.MaxStack) enemyChoices.Add(powerup);
 
-        _currentVotes = new List<Choice>{
-            new(powerupChoices[0], enemyPowerupsChoices[0], _enemyManager.GetFinalValue(enemyPowerupsChoices[0])),
-            new(powerupChoices[1], enemyPowerupsChoices[1], _enemyManager.GetFinalValue(enemyPowerupsChoices[1])),
-            new(powerupChoices[2], enemyPowerupsChoices[2], _enemyManager.GetFinalValue(enemyPowerupsChoices[2])),
-        };
-        _upgradeView.SetChoices(_currentVotes);
+        Shuffle(playerChoices);
+        Shuffle(enemyChoices);
+
+        int count = Mathf.Min(3, Mathf.Max(playerChoices.Count, enemyChoices.Count));
+        var votes = new List<Choice>(count);
+        for (int i = 0; i < count; i++)
+        {
+            Powerup powerup = i < playerChoices.Count ? playerChoices[i] : null;
+            EnemyPowerup enemyPowerup = i < enemyChoices.Count ? enemyChoices[i] : null;
+            double playerValue = powerup == null ? 0 : powerup.Value * (_powerupsCount[powerup.Type] + 1);
+            double enemyValue = enemyPowerup == null ? 0 : EnemyManager.GetFinalValue(enemyPowerup);
+            votes.Add(new Choice(powerup, playerValue, enemyPowerup, enemyValue));
+        }
+        return votes;
+    }
+
+    private static void Shuffle<T>(List<T> list)
+    {
+        for (int i = list.Count - 1; i > 0; i--)
+        {
+            int j = GD.RandRange(0, i);
+            (list[i], list[j]) = (list[j], list[i]);
+        }
     }
 
     private async void OnChoose(Choice choice)
     {
-        _upgradeView.DisplayChoicePicked(_currentVotes.IndexOf(choice) + 1);
+        Hud.UpgradeView.DisplayChoicePicked(_currentVotes.IndexOf(choice));
 
-        await Task.Delay(3000);
+        await ToSignal(GetTree().CreateTimer(ChoiceDisplayTime), SceneTreeTimer.SignalName.Timeout);
 
-        var upgradables = Player.GetChildren()
-            .Where(child => child is IUpgradable)
-            .Select(child => child as IUpgradable);
-        foreach (var upgradable in upgradables) upgradable.Upgrade(choice.Powerup.Type);
+        if (choice.Powerup != null)
+        {
+            if (Player is IUpgradable playerUpgradable) playerUpgradable.Upgrade(choice.Powerup);
+            foreach (var child in Player.GetChildren())
+                if (child is IUpgradable upgradable) upgradable.Upgrade(choice.Powerup);
 
-        _enemyManager.Upgrade(choice.EnemyPowerup);
+            _powerupsCount[choice.Powerup.Type]++;
+        }
 
-        _powerupsCount[choice.Powerup.Type]++;
-        _enemyPowerupsCount[choice.EnemyPowerup.Type]++;
+        if (choice.EnemyPowerup != null)
+        {
+            EnemyManager.Upgrade(choice.EnemyPowerup);
+            _enemyPowerupsCount[choice.EnemyPowerup.Type]++;
+        }
 
-        _isVotePhase = false;
-
+        IsVotePhase = false;
         GetTree().Paused = false;
-        _upgradeView.Clear();
-        _playerXp = 0;
+        Hud.UpgradeView.Clear();
+
+        TryStartLevelUp();
     }
 
-    public Vector3 GetRandomPosAroundPlayer(float range) => Player.Position + range * new Vector3(
-            (float)GD.RandRange(-1f, 1f),
-            0,
-            (float)GD.RandRange(-1f, 1f)
-            ).Normalized();
+    internal void PlayerDied()
+    {
+        if (IsGameOver) return;
 
-    internal Enemy GetNearestEnemy() => _enemyManager.Enemies
-        .OrderBy(enemy => (Player.Position - enemy.Position).Length())
-        .FirstOrDefault();
+        IsGameOver = true;
+        GetTree().Paused = true;
+        Hud.ShowGameOver(GameTime, Kills, PlayerLevel);
+    }
 
-    internal int GetMaxXPPerLevel(int level) => Mathf.RoundToInt(Math.Log10(Math.Pow(level, 10) * 10) * 5);
+    public void TogglePauseMenu()
+    {
+        if (IsVotePhase || IsGameOver) return;
 
-    internal int GetMaxEnemyLifepoints(int level) => Mathf.RoundToInt(Math.Log10(level * 10));
+        IsPauseMenuOpen = !IsPauseMenuOpen;
+        GetTree().Paused = IsPauseMenuOpen;
+        Hud.SetPauseMenuVisible(IsPauseMenuOpen);
+    }
 
-    internal int GetMaxEnemyLifepoints() => GetMaxEnemyLifepoints(_playerLevel);
+    public void RestartRun()
+    {
+        ResetRun();
+        GetTree().Paused = false;
+        // Deferred: restarting is triggered from UI signal callbacks.
+        GetTree().CallDeferred(SceneTree.MethodName.ReloadCurrentScene);
+    }
+
+    private void ResetRun()
+    {
+        GameTime = 0;
+        Kills = 0;
+        PlayerLevel = 1;
+        PlayerXp = 0;
+        MaxPlayerXp = GetMaxXPPerLevel(1);
+        IsVotePhase = false;
+        IsGameOver = false;
+        IsPauseMenuOpen = false;
+        _nextBossTime = BossSpawnInterval;
+        _currentVotes = null;
+
+        foreach (var powerup in _powerups) _powerupsCount[powerup.Type] = 0;
+        foreach (var powerup in _enemyPowerups) _enemyPowerupsCount[powerup.Type] = 0;
+
+        EnemyManager = new EnemyManager(this);
+        _enemySpawnTimeLeft = EnemyManager.SpawnDelay;
+        Player = null;
+    }
+
+    // Random point on a circle of the given radius around the player.
+    public Vector3 GetRandomPosOnRing(float range)
+    {
+        float angle = (float)GD.RandRange(0, Mathf.Tau);
+        return Player.Position + range * new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle));
+    }
+
+    // Uniformly distributed random point in a ring area around the player.
+    public Vector3 GetRandomPosInDisk(float maxRange, float minRange = 0)
+    {
+        float angle = (float)GD.RandRange(0, Mathf.Tau);
+        float radius = Mathf.Sqrt((float)GD.RandRange(minRange * minRange, maxRange * maxRange));
+        return Player.Position + radius * new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle));
+    }
+
+    internal Enemy GetNearestEnemy()
+    {
+        if (Player == null) return null;
+
+        Enemy nearest = null;
+        float nearestDistanceSq = float.MaxValue;
+        Vector3 playerPos = Player.Position;
+        foreach (var enemy in EnemyManager.Enemies)
+        {
+            float distanceSq = playerPos.DistanceSquaredTo(enemy.Position);
+            if (distanceSq >= nearestDistanceSq) continue;
+            nearestDistanceSq = distanceSq;
+            nearest = enemy;
+        }
+        return nearest;
+    }
+
+    internal int GetMaxXPPerLevel(int level) => 5 + 8 * (level - 1) + (level - 1) * (level - 1);
 }

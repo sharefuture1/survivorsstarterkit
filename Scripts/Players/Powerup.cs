@@ -34,6 +34,10 @@ public partial class Powerup : Resource
     [Export(PropertyHint.MultilineText)]
     public string Description;
 
+    // Magnitude applied per stack; upgradables interpret it per type.
+    [Export]
+    public float Value = 1;
+
     [Export]
     public bool IsCumulable = true;
 

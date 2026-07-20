@@ -44,6 +44,14 @@ By default, there are 5 enemies:
 - Archer (less life, less, less experience);
 - Boss (huge life, huge damages, huge experience).
 
+## Gameplay systems
+
+- **Run loop**: survive as long as you can. The HUD shows your level, the XP bar, the run timer and your kill count. Press `Esc` to pause (resume / restart / quit), and press `B` to spawn a boss (debug).
+- **Level-ups**: killing enemies grants XP (excess XP carries over between levels). On level-up the game pauses and offers up to 3 choices; every choice upgrades the player **but also** the horde.
+- **Difficulty curve**: enemy HP scales smoothly with your level and the elapsed time, spawns accelerate over the course of a run, and a boss spawns automatically every 2 minutes.
+- **Death & restart**: when your HP reaches 0 a game-over screen shows your run stats and lets you restart instantly. A short invulnerability window (0.3s) prevents a swarm from bursting you down in a single frame.
+- **Data-driven upgrades**: every player powerup is a `Powerup` resource (`Powerups/*.tres`) with a `Value` per stack and a `MaxCumul` cap — tune balance without touching code. Enemy powerups work the same way (`Powerups/Enemy/*.tres`).
+
 ## Troubleshooting
 
 ### Q: Opening the project for the first time crashes

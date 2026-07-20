@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1_cc1fs")
 Value = 0.1
-Name = "Monstres vitesse+"
-Description = "Les monstres se déplacement +0.1% plus vite (total: +{0}%)"
+Name = "Monsters: Speed+"
+Description = "Monsters move 0.1 faster (total: +{0})"
 MaxStack = 100
 Type = 102
