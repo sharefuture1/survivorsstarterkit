@@ -74,3 +74,12 @@ A: That's because of the physic engine. I can't turn Jolt into multithread for n
 - [KayKit - Dungeon Pack](https://kaylousberg.itch.io/kaykit-dungeon) by [Kay Lousberg](https://kaylousberg.com/) ;
 - [KayKit - Skeletons Pack ](https://kaylousberg.itch.io/kaykit-skeletons) by [Kay Lousberg](https://kaylousberg.com/) ;
 - [Pattern Pack](https://kenney.nl/assets/pattern-pack) by [Kenney](https://kenney.nl/).
+## Automated builds
+
+The repository includes a GitHub Actions workflow at `.github/workflows/build.yml`.
+It exports portable desktop packages for Windows, macOS, and Linux using the presets in
+`export_presets.cfg`.
+
+- Every push to `main` or the optimization branch and every pull request to `main` produces downloadable Actions artifacts.
+- Pushing a tag such as `v1.0.0` also creates a GitHub Release and attaches the three desktop archives.
+- The workflow uses Godot 4.6.2 Mono and .NET 8 to match this project.
